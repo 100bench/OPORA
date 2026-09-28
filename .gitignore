@@ -1,0 +1,34 @@
+# Local configuration and secrets. Keep the documented template tracked.
+.env
+.env.*
+!.env.example
+/secrets/
+*.pem
+*.key
+
+# Build and test outputs.
+/bin/
+/dist/
+/coverage.out
+/coverage.html
+*.cover
+*.prof
+*.test
+*.log
+/.build_presentation/
+/.codex-finalizer/
+/tmp/
+
+# Private and live evaluation data must never be committed.
+/media/
+/private/
+/live-corpus/
+/testdata/private/
+/testdata/live/
+/testdata/corpus/
+
+# Local editor and OS metadata.
+.DS_Store
+.idea/
+.vscode/
+*.swp

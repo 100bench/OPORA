@@ -1,0 +1,269 @@
+openapi: 3.1.0
+info:
+  title: Opora Android Assistant API
+  version: 0.1.0
+  description: In-memory MVP. All /v1 operations require a manually provisioned per-device bearer token.
+servers: [{url: "http://127.0.0.1:8080"}]
+security: [{deviceToken: []}]
+paths:
+  /health:
+    get:
+      security: []
+      operationId: health
+      responses: {'200': {description: Process alive, content: {application/json: {schema: {$ref: '#/components/schemas/Status'}}}}}
+  /ready:
+    get:
+      security: []
+      operationId: ready
+      responses:
+        '200': {description: Dependencies ready, content: {application/json: {schema: {$ref: '#/components/schemas/Status'}}}}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/sessions:
+    post:
+      operationId: createSession
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CreateSessionRequest'}}}}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {$ref: '#/components/schemas/Session'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+  /v1/transcriptions:
+    post:
+      operationId: transcribe
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [request_id, audio]
+              properties:
+                request_id: {$ref: '#/components/schemas/RequestID'}
+                audio: {type: string, contentMediaType: audio/wav, contentEncoding: binary, description: 'Mono PCM WAV, 16 kHz, 16-bit, <=30 seconds and <=1 MiB.'}
+      responses:
+        '200': {description: Completed, content: {application/json: {schema: {$ref: '#/components/schemas/Transcription'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/sessions/{session_id}/turns:
+    post:
+      operationId: createTurn
+      parameters: [{$ref: '#/components/parameters/SessionID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/TurnRequest'}}}}
+      responses:
+        '200': {description: Assistant reply, content: {application/json: {schema: {$ref: '#/components/schemas/Reply'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '410': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/sessions/{session_id}/confirmations:
+    post:
+      operationId: decideAction
+      parameters: [{$ref: '#/components/parameters/SessionID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmationRequest'}}}}
+      responses:
+        '200': {description: Confirmed or declined, content: {application/json: {schema: {$ref: '#/components/schemas/ConfirmationResult'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '410': {$ref: '#/components/responses/Error'}
+  /v1/sessions/{session_id}/results:
+    post:
+      operationId: reportActionResult
+      parameters: [{$ref: '#/components/parameters/SessionID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ActionResultRequest'}}}}
+      responses:
+        '200': {description: Recorded, content: {application/json: {schema: {$ref: '#/components/schemas/Status'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /v1/sessions/{session_id}/cancel:
+    post:
+      operationId: cancelSession
+      parameters: [{$ref: '#/components/parameters/SessionID'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CancelRequest'}}}}
+      responses:
+        '200': {description: Cancelled, content: {application/json: {schema: {$ref: '#/components/schemas/Status'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    deviceToken: {type: http, scheme: bearer, bearerFormat: opaque-device-token}
+  parameters:
+    SessionID: {name: session_id, in: path, required: true, schema: {type: string, minLength: 1, maxLength: 128}}
+  responses:
+    Error: {description: Stable error envelope, content: {application/json: {schema: {$ref: '#/components/schemas/ErrorEnvelope'}}}}
+  schemas:
+    RequestID: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9._:-]+$'}
+    Status:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties: {status: {type: string}}
+    App:
+      type: object
+      additionalProperties: false
+      required: [ref, label]
+      properties:
+        ref: {type: string, minLength: 1, maxLength: 128}
+        label: {type: string, minLength: 1, maxLength: 128}
+        aliases: {type: array, maxItems: 8, items: {type: string, minLength: 1, maxLength: 128}}
+    Contact:
+      type: object
+      additionalProperties: false
+      required: [ref, label]
+      properties:
+        ref: {type: string, minLength: 1, maxLength: 128}
+        label: {type: string, minLength: 1, maxLength: 128}
+        aliases: {type: array, maxItems: 8, items: {type: string, minLength: 1, maxLength: 128}}
+    CreateSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [apps]
+      properties:
+        apps: {type: array, maxItems: 128, items: {$ref: '#/components/schemas/App'}}
+        contacts: {type: array, maxItems: 32, items: {$ref: '#/components/schemas/Contact'}}
+    Session:
+      type: object
+      additionalProperties: false
+      required: [id, expires_at]
+      properties: {id: {type: string}, expires_at: {type: string, format: date-time}}
+    Bounds:
+      type: object
+      additionalProperties: false
+      required: [left, top, right, bottom]
+      properties: {left: {type: integer}, top: {type: integer}, right: {type: integer}, bottom: {type: integer}}
+    ScreenNode:
+      type: object
+      additionalProperties: false
+      required: [id, bounds, enabled, visible]
+      properties:
+        id: {type: string, minLength: 1, maxLength: 128, description: Scoped to this snapshot version.}
+        text: {type: string, maxLength: 2048}
+        bounds: {$ref: '#/components/schemas/Bounds'}
+        enabled: {type: boolean}
+        visible: {type: boolean}
+        actions: {type: array, maxItems: 16, items: {type: string, enum: [click, scroll, set_text]}}
+        sensitive: {type: boolean, default: false, description: A true node permits filtered tree-only handling but forbids the screenshot path.}
+    ScreenSnapshot:
+      type: object
+      additionalProperties: false
+      required: [package, version, width, height, nodes]
+      properties:
+        package: {type: string, minLength: 1, maxLength: 255, description: Foreground observation only; never an action target.}
+        version: {type: string, minLength: 1, maxLength: 128}
+        width: {type: integer, minimum: 1, maximum: 10000}
+        height: {type: integer, minimum: 1, maximum: 10000}
+        protected: {type: boolean, default: false}
+        sensitive: {type: boolean, default: false}
+        nodes: {type: array, maxItems: 500, items: {$ref: '#/components/schemas/ScreenNode'}}
+    ImageInput:
+      type: object
+      additionalProperties: false
+      required: [media_type, data_base64, consent, screen_version]
+      properties:
+        media_type: {type: string, enum: [image/jpeg, image/png]}
+        data_base64: {type: string, contentEncoding: base64, maxLength: 6990508}
+        consent: {type: boolean, const: true}
+        screen_version: {type: string, minLength: 1, maxLength: 128}
+    TurnRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, text, screen]
+      properties:
+        request_id: {$ref: '#/components/schemas/RequestID'}
+        text: {type: string, minLength: 1, maxLength: 4000}
+        screen: {$ref: '#/components/schemas/ScreenSnapshot'}
+        image: {$ref: '#/components/schemas/ImageInput'}
+    ActionProposal:
+      type: object
+      additionalProperties: false
+      required: [action_id, kind, display_text]
+      properties:
+        action_id: {type: string}
+        kind: {type: string, enum: [OPEN_APP, PREPARE_DIALER]}
+        app_ref: {type: string, maxLength: 128}
+        app_label: {type: string, maxLength: 128}
+        contact_ref: {type: string, maxLength: 128}
+        display_text: {type: string, minLength: 1, maxLength: 1000}
+    Reply:
+      type: object
+      additionalProperties: false
+      required: [kind, text, generation, screen_version]
+      properties:
+        kind: {type: string, enum: [explain, highlight, clarify, action_proposal, need_image, refuse]}
+        text: {type: string, minLength: 1, maxLength: 4000}
+        highlight_node_ids: {type: array, maxItems: 1, items: {type: string}}
+        action: {$ref: '#/components/schemas/ActionProposal'}
+        generation: {type: integer, minimum: 1}
+        screen_version: {type: string}
+    ConfirmationRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, action_id, screen_version, generation, decision]
+      properties:
+        request_id: {$ref: '#/components/schemas/RequestID'}
+        action_id: {type: string}
+        screen_version: {type: string}
+        generation: {type: integer, minimum: 1}
+        decision: {type: string, enum: [CONFIRM, DECLINE]}
+    ActionGrant:
+      type: object
+      additionalProperties: false
+      required: [action_id, kind, expires_at]
+      properties:
+        action_id: {type: string}
+        kind: {type: string, enum: [OPEN_APP, PREPARE_DIALER]}
+        app_ref: {type: string}
+        app_label: {type: string}
+        contact_ref: {type: string}
+        expires_at: {type: string, format: date-time}
+    ConfirmationResult:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: {type: string, enum: [confirmed, declined]}
+        grant: {$ref: '#/components/schemas/ActionGrant'}
+    ActionResultRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id, action_id, status]
+      properties:
+        request_id: {$ref: '#/components/schemas/RequestID'}
+        action_id: {type: string}
+        status: {type: string, enum: [opened, dialer_presented, failed, cancelled]}
+    CancelRequest:
+      type: object
+      additionalProperties: false
+      required: [request_id]
+      properties: {request_id: {$ref: '#/components/schemas/RequestID'}}
+    Transcription:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties: {text: {type: string, maxLength: 4000}}
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code: {type: string, enum: [INVALID_ARGUMENT, PAYLOAD_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, UNAUTHORIZED, NOT_FOUND, CONFLICT, IN_PROGRESS, EXPIRED, UNSAFE_REQUEST, RESOURCE_EXHAUSTED, PROVIDER_UNAVAILABLE, INTERNAL, NOT_IMPLEMENTED]}
+            message: {type: string, minLength: 1, maxLength: 1000}
+            request_id: {type: string, maxLength: 128}
