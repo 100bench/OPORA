@@ -19,6 +19,13 @@
 /.codex-finalizer/
 /tmp/
 
+# Design mockups, rendered images, and presentations stay local.
+/assets/
+/output/
+/*.png
+/*.svg
+/*.html
+
 # Private and live evaluation data must never be committed.
 /media/
 /private/
